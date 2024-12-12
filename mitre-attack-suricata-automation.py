@@ -15,33 +15,33 @@ from langchain_openai import ChatOpenAI
 from langchain.prompts import ChatPromptTemplate
 from langchain.schema import HumanMessage
 
-# 로깅 설정 (디버그 레벨로 설정하여 모든 디버그 메시지를 출력)
+# Logging settings (set to debug level to print all debug messages)
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# Suricata 규칙을 나타내는 클래스
+# Class representing Suricata rules
 class SuricataRule:
     def __init__(self, header: str, options: Dict[str, str]):
-        # 규칙의 헤더와 옵션을 초기화
+        # Initialize rule headers and options
         self.header = header
         self.options = options
 
     def __str__(self):
-        # 규칙을 Suricata 형식으로 문자열로 반환
+        # Returns the rule as a string in Suricata format
         options_str = " ".join([f"{k}:{v};" if v else f"{k};" for k, v in self.options.items()])
         return f"{self.header} ({options_str})"
 
-# Suricata 규칙을 검증하는 클래스
+# Class to validate Suricata rules
 class SuricataRuleValidator:
     def __init__(self, technique_id: str, technique_name: str):
-        # 기술 ID와 이름을 초기화하고, 에러와 경고를 저장할 리스트를 초기화
+        # Initialize the technology ID and name, and initialize the list to store errors and warnings
         self.technique_id = technique_id
         self.technique_name = technique_name
         self.errors: List[str] = []
         self.warnings: List[str] = []
 
     def validate(self, rule: str) -> Tuple[bool, Dict[str, Any]]:
-        # 주어진 규칙에 대한 검증을 수행
+        # Perform verification for given rules
         self.errors = []
         self.warnings = []
         result = {
@@ -49,14 +49,14 @@ class SuricataRuleValidator:
             "options": {}
         }
 
-        # 규칙 헤더 검증
+        # Rule header validation
         header_match = re.match(r'^(alert|log|pass|drop|reject|sdrop)\s+(tcp|udp|icmp|ip|http|ftp|tls|smb|dns|modbus|enip)\s+.*?\s+.*?\s+.*?$', rule, re.MULTILINE)
         if header_match:
             result["header"] = header_match.group(0)
         else:
-            self.errors.append("Invalid rule header")  # 잘못된 규칙 헤더
+            self.errors.append("Invalid rule header")  # Invalid rule header
 
-        # 옵션 검증
+       # Verify options
         options_match = re.search(r'\((.*)\)$', rule, re.DOTALL)
         if options_match:
             options = options_match.group(1).split(';')
@@ -68,19 +68,19 @@ class SuricataRuleValidator:
                 else:
                     result["options"][option] = None
         else:
-            self.errors.append("Missing rule options")  # 옵션이 누락된 경우
+            self.errors.append("Missing rule options")  # If an option is missing
 
-        # 필수 옵션 확인
+       # Check required options
         required_options = ['msg', 'sid', 'rev', 'classtype', 'reference']
         for option in required_options:
             if option not in result["options"]:
-                self.errors.append(f"Missing required option: {option}")  # 필수 옵션 누락
+                self.errors.append(f"Missing required option: {option}")  # Required options missing
 
-        # 기술 관련 패턴 확인 (기술 이름이 규칙에 명시적으로 포함되었는지 확인)
+  # Check for technology-related patterns (check if the technology name is explicitly included in the rule)      
         if not re.search(re.escape(self.technique_name), rule, re.IGNORECASE):
             self.warnings.append(f"No explicit reference to technique '{self.technique_name}' found")
 
-        # 추가 검증 로직 호출
+     # Call additional verification logic
         self._check_content_matches(rule)
         self._check_performance_impact(rule)
         self._check_evasion_resistance(rule)
@@ -88,22 +88,22 @@ class SuricataRuleValidator:
         is_valid = len(self.errors) == 0
         return is_valid, result
 
-    # content 또는 pcre 매칭이 있는지 확인
+    # Check if there is a content or pcre match
     def _check_content_matches(self, rule: str):
         if 'content:' not in rule and 'pcre:' not in rule:
             self.warnings.append("Rule doesn't contain any content or pcre matches")
 
-    # 규칙의 성능 영향을 검토
+   # Review the performance impact of the rules
     def _check_performance_impact(self, rule: str):
         if rule.count('content:') > 5 or rule.count('pcre:') > 3:
             self.warnings.append("Rule contains a high number of content or pcre matches, which might impact performance")
 
-    # 규칙이 회피 저항성을 가지고 있는지 확인
+  # Check if the rule is evasion resistant 
     def _check_evasion_resistance(self, rule: str):
         if 'nocase;' not in rule and 'pcre:' not in rule:
             self.warnings.append("Rule might be susceptible to simple evasion techniques")
 
-    # 검증 결과 보고서 생성
+   # Generate verification result report
     def get_report(self) -> str:
         report = f"Validation Report for {self.technique_name} ({self.technique_id})\n"
         report += "=" * 50 + "\n\n"
@@ -125,26 +125,26 @@ class SuricataRuleValidator:
 
         return report
 
-# Suricata 규칙을 시뮬레이션하는 클래스
+# Class that simulates Suricata rules
 class SuricataSimulator:
     def __init__(self):
-        # 로드된 규칙을 저장할 리스트 초기화
+      # Initialize list to store loaded rules
         self.rules: List[SuricataRule] = []
 
-    # 규칙을 로드
+# load rules
     def load_rule(self, rule: SuricataRule):
         self.rules.append(rule)
 
-    # 패킷 트래픽을 시뮬레이션하여 규칙이 발동되는지 확인
+# Simulate packet traffic to see if the rule is triggered
     def simulate_traffic(self, packet: Dict[str, Any]) -> Tuple[bool, List[str]]:
         alerts = []
         for rule in self.rules:
             if self._rule_matches(rule, packet):
-                alerts.append(f"Alert triggered: {rule.options.get('msg', 'Unknown alert')}")  # 경고 메시지 추가
+                alerts.append(f"Alert triggered: {rule.options.get('msg', 'Unknown alert')}")  # Add warning message
         
         return len(alerts) > 0, alerts
 
-    # 규칙이 주어진 패킷과 일치하는지 확인
+  # Check if the rule matches the given packet  
     def _rule_matches(self, rule: SuricataRule, packet: Dict[str, Any]) -> bool:
         protocol = rule.header.split()[1]
         if protocol != packet.get('protocol'):
@@ -163,10 +163,10 @@ class SuricataSimulator:
 
         return True
 
-# MITRE ATT&CK Suricata 시스템 클래스
+# MITER ATT&CK Suricata system class
 class MitreAttackSuricataSystem:
     def __init__(self, openai_api_key, db_path='mitre_attack.db', suricata_path='suricata'):
-        # 주요 설정 초기화 및 데이터베이스 연결
+# Initialize main settings and connect to database       
         self.db_path = db_path
         self.suricata_path = suricata_path
         self.conn = sqlite3.connect(self.db_path)
@@ -176,9 +176,9 @@ class MitreAttackSuricataSystem:
         if not os.path.exists(self.report_dir):
             os.makedirs(self.report_dir)
         self.initialize_database()
-        logger.info("MITRE ATT&CK Suricata 시스템이 초기화되었습니다.")
+        logger.info("MITRE ATT&CK Suricata The system has been reset.")
 
-    # 데이터베이스 초기화 (테이블 생성)
+# Initialize database (create table)
     def initialize_database(self):
         self.cursor.execute('''
         CREATE TABLE IF NOT EXISTS suricata_rules (
@@ -190,32 +190,32 @@ class MitreAttackSuricataSystem:
         ''')
         self.conn.commit()
 
-    # 기술 ID로부터 SID 생성
+ # Generate SID from technical ID  
     def generate_sid(self, technique_id: str) -> int:
         numeric_part = re.sub(r'\D', '', technique_id)
         base_sid = int(numeric_part) % 1000000
         return 3000000 + base_sid
 
-    # 기술 ID에 따라 Suricata 규칙 생성
+ # Create Suricata rule based on technology ID  
     def generate_suricata_rule(self, technique_id):
-        logger.info(f"기술 {technique_id}에 대한 Suricata 규칙 생성 중...")
+        logger.info(f"Creating Suricata rule for technology {technique_id}...")
         prompt = self.generate_prompt(technique_id)
         response = self.chat_model.invoke(prompt.messages)
         rule_content = response.content.strip()
-        logger.debug(f"GPT-4o-mini가 생성한 원본 규칙:\n{rule_content}")
+        logger.debug(f"Original rule generated by GPT-4o-mini:\n{rule_content}")
         rule_content = self.post_process_rule(rule_content, technique_id)
-        logger.debug(f"후처리된 규칙:\n{rule_content}")
-        logger.info(f"기술 {technique_id}에 대한 Suricata 규칙 생성 완료")
+        logger.debug(f"Post-processed rule:\n{rule_content}")
+        logger.info(f"Suricata rule creation completed for technology {technique_id}")
         return rule_content
 
-    # 생성된 규칙에 대한 후처리 작업
+    # Post-processing for created rules
     def post_process_rule(self, rule_content: str, technique_id: str) -> str:
         logger.debug(f"Original rule content:\n{rule_content}")
 
-        # 1. 주석 제거
+     # 1. Remove comments  
         rule_content = re.sub(r'#.*', '', rule_content).strip()
 
-        # 2. SID 생성 및 할당
+      # 2. SID creation and assignment 
         sid_pattern = re.compile(r'sid:\s*\d+;')
         existing_sid = sid_pattern.search(rule_content)
         new_sid = self.generate_sid(technique_id)
@@ -224,35 +224,35 @@ class MitreAttackSuricataSystem:
         else:
             rule_content = re.sub(r'\)\s*$', f' sid:{new_sid};)', rule_content)
 
-        # 3. rev 값 확인 및 설정
+      # 3. Check and set rev value
         if 'rev:' not in rule_content:
             rule_content = re.sub(r'\)\s*$', ' rev:1;)', rule_content)
 
-        # 4. classtype 확인 및 설정
+      # 4. Check and set classtype  
         if 'classtype:' not in rule_content:
             rule_content = re.sub(r'\)\s*$', ' classtype:trojan-activity;)', rule_content)
 
-        # 5. reference 옵션 확인 및 형식화
+       # 5. Check and format reference options
         rule_content = re.sub(r'reference:.*?;', '', rule_content)
         rule_content = re.sub(r'\)\s*$', f' reference:url,https://attack.mitre.org/techniques/{technique_id}/;)', rule_content)
 
-        # 6. Evasion Resistance 추가
+      # 6. Add Evasion Resistance
         if 'nocase;' not in rule_content:
             rule_content = re.sub(r'(\bcontent:[^;]+;)', r'\1 nocase;', rule_content)
 
-        # 7. fast_pattern 사용 개수 확인 및 제한
+      # 7. Check and limit the number of fast_pattern usages  
         fast_pattern_count = rule_content.count('fast_pattern;')
         if fast_pattern_count > 1:
             rule_content = rule_content.replace('fast_pattern;', '', fast_pattern_count - 1)
 
-        # 8. 헤더 유효성 검사 및 자동 수정
+       # 8. Header validation and auto-correction
         logger.debug(f"Checking rule header for validity: {rule_content}")
 
         header_pattern = re.compile(r'^(alert|log|pass|drop|reject|sdrop)\s+(tcp|udp|icmp|ip|http|ftp|tls|smb|dns|file)\s+any\s+any\s+->\s+any\s+any\s+\(.*\)$', re.IGNORECASE)
         if not header_pattern.match(rule_content):
             logger.error(f"Invalid rule header detected: {rule_content}")
 
-            # 기본 헤더로 대체 시도
+          # Try replacing with default header 
             try:
                 parts = rule_content.split('(')
                 if len(parts) > 1:
@@ -267,30 +267,29 @@ class MitreAttackSuricataSystem:
                     raise ValueError("Rule format is too unexpected to correct.")
             except Exception as e:
                 logger.error(f"Failed to correct rule header: {rule_content}. Generating a basic default rule.")
-                # 기본 규칙 생성
+             # Create default rule 
                 rule_content = f"alert tcp any any -> any any (msg:\"Default rule for {technique_id}\"; sid:{self.generate_sid(technique_id)}; rev:1; classtype:trojan-activity; reference:url,https://attack.mitre.org/techniques/{technique_id}/;)"
                 logger.debug(f"Generated basic default rule: {rule_content}")
 
-        # 9. 성능 최적화: 과도한 content 또는 pcre 제거 및 fast_pattern 추가
+     # 9. Performance optimization: remove excessive content or pcre and add fast_pattern
         content_matches = re.findall(r'content:', rule_content)
         pcre_matches = re.findall(r'pcre:', rule_content)
         if len(content_matches) > 3 or len(pcre_matches) > 3:
             rule_content = re.sub(r'(content|pcre):[^;]+;', '', rule_content, len(content_matches) - 3)
 
-        # fast_pattern 옵션을 자동으로 추가
+       # Automatically add fast_pattern option 
         if 'content:' in rule_content and 'fast_pattern;' not in rule_content:
             rule_content = re.sub(r'(content:[^;]+;)', r'\1 fast_pattern;', rule_content)
 
-        # 10. 공백 및 불필요한 세미콜론 정리
-        rule_content = re.sub(r'\s{2,}', ' ', rule_content)  # 이중 공백 제거
-        rule_content = re.sub(r';\s*;', ';', rule_content)  # 이중 세미콜론 제거
+       # 10. Clean up spaces and unnecessary semicolons 
+        rule_content = re.sub(r'\s{2,}', ' ', rule_content)  # remove double spaces
+        rule_content = re.sub(r';\s*;', ';', rule_content) # Remove double semicolons
         rule_content = rule_content.strip()
 
         logger.debug(f"Final processed rule:\n{rule_content}")
         return rule_content
 
-
-    # Suricata 문법 검증
+# Suricata grammar verification
     def validate_syntax(self, rule_content):
         logger.info("Suricata 7.0 규칙 문법 검증 중...")
         logger.debug(f"검증 중인 규칙 내용:\n{rule_content}")
@@ -305,16 +304,16 @@ class MitreAttackSuricataSystem:
                 text=True,
                 check=True
             )
-            logger.info("문법 검증 통과")
+            logger.info("Grammar verification passed")
             return True, "Syntax validation passed"
         except subprocess.CalledProcessError as e:
             error_message = e.stderr
-            logger.error(f"문법 검증 실패. 오류 메시지:\n{error_message}")
+            logger.error(f"Grammar verification failed. Error message:\n{error_message}")
             return False, f"Syntax validation failed: {error_message}"
         finally:
             os.unlink(temp_file_path)
 
-    # 생성된 규칙에 대한 검증 (문법, 유연성, 시뮬레이션)
+   # Verification of generated rules (grammar, flexibility, simulation)
     def validate_rule(self, technique_id, rule_content):
         syntax_valid, syntax_message = self.validate_syntax(rule_content)
         
@@ -330,7 +329,7 @@ class MitreAttackSuricataSystem:
                 rule = SuricataRule(flex_result["header"], flex_result["options"])
                 simulator.load_rule(rule)
                 
-                # 모든 content 옵션을 포함하는 테스트 패킷 생성
+            # Create a test packet containing all content options    
                 contents = [rule.options[key] for key in rule.options if key.startswith('content')]
                 test_packet = {
                     "protocol": rule.header.split()[1],
@@ -352,7 +351,7 @@ class MitreAttackSuricataSystem:
             "simulation_alerts": sim_alerts
         }
 
-    # 주어진 기술에 대해 Suricata 규칙을 생성하고 처리
+   # Generate and process Suricata rules for a given skill
     def process_technique(self, technique):
         technique_id, name, description, detection = technique
         report_filename = f"{self.report_dir}/technique_{technique_id}_report.txt"
@@ -384,7 +383,7 @@ class MitreAttackSuricataSystem:
         
         return is_valid, validation_result
 
-    # 모든 네트워크 관련 기술 처리
+  # Handles all network related technologies 
     def process_all_techniques(self):
         logger.info("Processing all network-related techniques")
         techniques = self.get_network_techniques()
@@ -401,9 +400,9 @@ class MitreAttackSuricataSystem:
         logger.info("All techniques processed")
         return results
 
-    # 네트워크 관련 기술 필터링
+# Filter network-related technologies
     def get_network_techniques(self):
-        logger.info("네트워크 관련 기술 필터링 중...")
+        logger.info("Filtering network-related technologies...")
         network_keywords = ["network", "traffic", "packet", "connection", "flow", "port", "protocol"]
         
         query = '''
@@ -419,7 +418,7 @@ class MitreAttackSuricataSystem:
         logger.info(f"Found {len(network_techniques)} network-related techniques")
         return network_techniques
 
-    # 기술에 대한 보고서 생성
+  # Generate reports on skills 
     def generate_technique_report(self, technique_id, name, description, detection, is_valid, validation_result, suricata_rule):
         report = f"Technique Report: {name} ({technique_id})\n"
         report += "=" * 50 + "\n\n"
@@ -437,12 +436,12 @@ class MitreAttackSuricataSystem:
         
         report += f"Valid: {'Yes' if is_valid else 'No'}\n"
         
-        # Syntax Validation 결과
+        # Syntax Validation
         report += "\nSyntax Validation:\n"
         report += "=" * 50 + "\n"
         report += f"{validation_result['syntax_validation']}\n"
 
-        # Simulator Validation 결과
+        # Simulator Validation Results
         report += "\nSimulator Validation:\n"
         report += "=" * 50 + "\n"
         if validation_result['simulation_success']:
@@ -462,14 +461,14 @@ class MitreAttackSuricataSystem:
         report += "-" * 50 + "\n"
         return report
 
-    # 기술 보고서 파일로 저장
+ # Save as technical report file
     def save_technique_report(self, technique_id, report):
         filename = f"{self.report_dir}/technique_{technique_id}_report.txt"
         with open(filename, "w") as f:
             f.write(report)
         logger.info(f"Saved report for technique {technique_id}")
 
-    # 요약 보고서 생성
+# Generate summary report
     def generate_summary_report(self, results):
         total_techniques = len(results)
         valid_rules = sum(1 for r in results if r["is_valid"])
@@ -493,13 +492,13 @@ class MitreAttackSuricataSystem:
 
         return report
 
-    # 기술 이름 가져오기
+   # Get skill name
     def get_technique_name(self, technique_id):
         self.cursor.execute('SELECT name FROM techniques WHERE id = ?', (technique_id,))
         result = self.cursor.fetchone()
         return result[0] if result else "Unknown Technique"
 
-    # 규칙 생성을 위한 프롬프트 생성
+  # Create prompt for rule creation 
     def generate_prompt(self, technique_id):
         self.cursor.execute('SELECT name, description, detection FROM techniques WHERE id = ?', (technique_id,))
         technique = self.cursor.fetchone()
@@ -560,30 +559,30 @@ class MitreAttackSuricataSystem:
                 
         return ChatPromptTemplate.from_messages([HumanMessage(content=prompt)])
 
-    # 데이터베이스 연결 종료
+   # Close database connection
     def close(self):
         self.conn.close()
-        logger.info("데이터베이스 연결이 종료되었습니다.")
+        logger.info("The database connection has been terminated.")
 
-# 메인 함수 (시스템 초기화 및 모든 기술 처리)
+# Main function (initializes the system and handles all technology)
 def main():
     openai_api_key = "YOUR_OPENAI_API_TOKEN"
 
     system = MitreAttackSuricataSystem(openai_api_key)
 
-    # 모든 네트워크 관련 기술을 처리하고 Suricata 규칙 생성
+ # Handles all network related technologies and creates Suricata rules 
     results = system.process_all_techniques()
 
-    # 요약 보고서 생성
+# Generate summary report
     summary_report = system.generate_summary_report(results)
     print(summary_report)
 
-    # 요약 보고서를 파일로 저장
+ # Save summary report to file 
     with open("mitre_attack_suricata_summary_report.txt", "w") as f:
         f.write(summary_report)
 
     system.close()
 
-# 메인 함수 실행
+# Execute main function
 if __name__ == "__main__":
     main()
