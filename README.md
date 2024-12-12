@@ -1,3 +1,13 @@
+## About This Repository
+This repository is a modified version of [original repository](https://github.com/hellocosmos/mitre-attck-suricata-automation).
+Changes made:
+- Changed comments to English for better understanding.
+- Other modifications as needed.
+
+Original Author: hellocosmos@gmail.com
+
+
+
 - The implementation of this code is freely available for personal use. If you wish to use it commercially, consultation with the author is required. When distributing, you must specify the author and license.
 - author : hellocosmos@gmail.com
 
